@@ -30,7 +30,7 @@ Class CvJoyInterface {
 
 	; Handy lookups to axis HID_USAGE values
 	AxisIndex := [0x30,0x31,0x32,0x33,0x34,0x35,0x36,0x37]	; Index (Axis Number) to HID Descriptor
-	AxisAssoc := {x:0x30, y:0x31, z:0x32, rx:0x33, ry:0x34, rz: 0x35, sl1:0x36, sl2:0x37} ; Name (eg "x", "y", "z", "sl1") to HID Descriptor
+	AxisAssoc := Map("x", 0x30, "y", 0x31, "z", 0x32, "rx", 0x33, "ry", 0x34, "rz", 0x35, "sl1", 0x36, "sl2", 0x37) ; Name (eg "x", "y", "z", "sl1") to HID Descriptor
 	AxisNames := ["X","Y","Z","RX","RY","RZ","SL0","SL1"]
 
 	; ===== Device helper subclass.
@@ -63,7 +63,7 @@ Class CvJoyInterface {
 				return 1
 			}
 			if (this.Interface.SingleStickMode){
-				Loop % this.Interface.Devices.MaxIndex() {
+				Loop this.Interface.Devices.Length {
 					if (A_Index == this.DeviceID){
 						Continue
 					}
@@ -79,7 +79,7 @@ Class CvJoyInterface {
 				this.Interface.ResetVJD(this.DeviceID)
 			} else {
 				if (this.Interface.DebugMode) {
-					OutputDebug, % "Error in " A_ThisFunc "`nDeviceID = " this.DeviceID ", ErrorLevel: " ErrorLevel ", Device Status: " this.GetStatusName()
+					OutputDebug("Error in " A_ThisFunc "`nDeviceID = " this.DeviceID ", Device Status: " this.GetStatusName())
 				}
 			}
 			return ret
@@ -171,8 +171,8 @@ Class CvJoyInterface {
 	; ===== Constructors / Destructors
 	__New(){
 		; Build Device array
-		Loop % this.VJD_MAXDEV {
-			this.Devices[A_Index] := new this.CvJoyDevice(A_Index, this)
+		Loop this.VJD_MAXDEV {
+			this.Devices.Push(CvJoyInterface.CvJoyDevice(A_Index, this))
 		}
 
 		; Try and Load the DLL
@@ -182,7 +182,7 @@ Class CvJoyInterface {
 
 	__Delete(){
 		; Relinquish Devices
-		Loop % this.VJD_MAXDEV {
+		Loop this.VJD_MAXDEV {
 			this.Devices[A_Index].Relinquish()
 		}
 
@@ -218,9 +218,9 @@ Class CvJoyInterface {
 		; Check if vJoy is installed. Even with the DLL, if vJoy is not installed it will not work...
 		; Find vJoy install folder by looking for registry key.
 		if (A_Is64bitOS && A_PtrSize != 8){
-			SetRegView 64
+			SetRegView(64)
 		}
-		RegRead vJoyFolder, HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{8E31F76F-74C3-47F1-9550-E041EEDC5FBB}_is1, InstallLocation
+		vJoyFolder := RegRead("HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{8E31F76F-74C3-47F1-9550-E041EEDC5FBB}_is1", "InstallLocation")
 
 		if (!vJoyFolder){
 			this.LoadLibraryLog .= "ERROR: Could not find the vJoy Registry Key.`n`nvJoy does not appear to be installed.`nPlease ensure you have installed vJoy from`n`nhttp://vjoystick.sourceforge.net."
@@ -236,7 +236,7 @@ Class CvJoyInterface {
 			; 32-Bit AHK
 			DllKey := "DllX86Location"
 		}
-		RegRead DllFolder, HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{8E31F76F-74C3-47F1-9550-E041EEDC5FBB}_is1, % DllKey
+		DllFolder := RegRead("HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{8E31F76F-74C3-47F1-9550-E041EEDC5FBB}_is1", DllKey)
 
 		if (!DllFolder){
 			; Could not find registry entry. Advise vJoy update.
@@ -252,11 +252,11 @@ Class CvJoyInterface {
 		CheckLocations := [DllFolder DllFile]
 
 		hModule := 0
-		Loop % CheckLocations.Maxindex() {
+		Loop CheckLocations.Length != 0 ? CheckLocations.Length : "" {
 			this.LoadLibraryLog .= "Checking " CheckLocations[A_Index] "... "
 			if (FileExist(CheckLocations[A_Index])){
 				this.LoadLibraryLog .= "FOUND.`nTrying to load.. "
-				hModule := DLLCall("LoadLibrary", "Str", CheckLocations[A_Index])
+				hModule := DllCall("LoadLibrary", "Str", CheckLocations[A_Index])
 				if (hModule){
 					this.hModule := hModule
 					this.LoadLibraryLog .= "OK.`n"
@@ -266,7 +266,7 @@ Class CvJoyInterface {
 						this.LoadLibraryLog .= "OK.`n"
 						this.LoadLibraryLog .= "Loaded vJoy DLL version " this.GetvJoyVersion() "`n"
 						if (this.DebugMode){
-							OutputDebug, % this.LoadLibraryLog
+							OutputDebug(this.LoadLibraryLog)
 						}
 						return 1
 					} else {
